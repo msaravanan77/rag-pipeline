@@ -144,7 +144,52 @@ sudo systemctl restart cncf-rag
 | Query from Mac times out | Your public IP changed — re-run `terraform apply -var="your_ip_cidr=$(curl -s ifconfig.me)/32"` to update the security group |
 | Bootstrap seems incomplete | `sudo tail -100 /var/log/cloud-init-output.log` |
 
-## 10. Tear down
+## 10. Destroy everything except S3, then resurrect with one command
+
+The S3 bucket is the system's source of truth. **Before destroying**, snapshot
+the running instance into S3 (takes ~2 minutes):
+
+```bash
+ssh -i /Users/saravanan/aws/key/us-east-1-mac-key.pem ec2-user@<ELASTIC_IP> \
+  'sudo bash /opt/cncf-rag/scripts/backup_to_s3.sh'
+```
+
+This uploads to the bucket:
+
+| S3 key | Contents |
+|---|---|
+| `bootstrap/code.tar.gz` | the application code as deployed |
+| `bootstrap/cncf-rag.env` | env file **including your API keys** |
+| `backups/qdrant-storage.tar.gz` | the vector index — restoring it means **no re-embedding** |
+| `raw/kubernetes.tar.gz` (etc.) | the corpora |
+| `ingest-index/.ingest_index.db` | checksum index so re-ingestion skips unchanged files |
+
+Then destroy compute (S3 survives because `force_destroy = false` plus
+terraform refuses to delete a non-empty bucket):
+
+```bash
+cd infra && terraform destroy -var="your_ip_cidr=$(curl -4 -s ifconfig.me)/32"
+```
+
+**To resurrect later — this is the whole procedure:**
+
+```bash
+cd infra
+terraform apply -var="your_ip_cidr=$(curl -4 -s ifconfig.me)/32"
+```
+
+The new instance's user-data pulls code, env (keys included), Qdrant index, and
+corpus from S3 via its IAM role and starts both services. ~5 minutes after
+apply, `curl http://<NEW_ELASTIC_IP>:8000/health` works and queries answer
+immediately — no SSH, no key pasting, no re-ingestion. You get a NEW Elastic IP
+(shown in the apply output); your security group is built fresh from the
+`your_ip_cidr` you pass, so it also heals the "my ISP changed my IP" problem.
+
+Security note: the env file in S3 contains real API keys. That's acceptable for
+a single-user private bucket (public access blocked, SSE-S3 encrypted, IAM-scoped),
+but for anything shared, move keys to SSM Parameter Store instead.
+
+## 11. Tear down completely
 
 ```bash
 cd infra

@@ -63,6 +63,21 @@ async def _ingest(projects: list[Project], corpus_dir: Path, dry_run: bool) -> N
 
     all_chunks = []
     doc_count = 0
+    # Buffer chunks across documents and embed in FULL 96-text batches.
+    # Per-document embedding (~6 chunks/call) would spend ~15x more API
+    # calls — fatal on a Cohere trial key with a monthly call cap.
+    buffer: list = []
+    flush_threshold = 96 * 4
+
+    async def flush() -> None:
+        if not buffer or embedder is None or store is None:
+            return
+        vectors = await embedder.embed_documents([c.content for c in buffer])
+        for chunk, vector in zip(buffer, vectors):
+            chunk.embedding = vector
+        await store.upsert_chunks(buffer)
+        buffer.clear()
+
     with Progress(SpinnerColumn(), TextColumn("{task.description}"), console=console) as progress:
         task = progress.add_task("Ingesting...", total=None)
         async for document in loader.load_all(corpus_dir, projects):
@@ -71,12 +86,12 @@ async def _ingest(projects: list[Project], corpus_dir: Path, dry_run: bool) -> N
             all_chunks.extend(chunks)
             progress.update(task, description=f"{doc_count} docs → {len(all_chunks)} chunks ({document.metadata.source_path})")
 
-            if not dry_run and embedder is not None and store is not None:
-                texts = [c.content for c in chunks]
-                vectors = await embedder.embed_documents(texts)
-                for chunk, vector in zip(chunks, vectors):
-                    chunk.embedding = vector
-                await store.upsert_chunks(chunks)
+            if not dry_run:
+                buffer.extend(chunks)
+                if len(buffer) >= flush_threshold:
+                    await flush()
+        if not dry_run:
+            await flush()
 
     report = ChunkingEvaluator().evaluate(all_chunks)
     ChunkingEvaluator().print_report(report)

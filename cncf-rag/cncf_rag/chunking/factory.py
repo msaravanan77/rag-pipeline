@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import structlog
 
 from cncf_rag.chunking.models import Chunk
@@ -37,9 +39,14 @@ class ChunkerFactory:
             case DocType.DSL_REF:
                 return HybridChunker(max_tokens=256, overlap_tokens=32)
             case DocType.BLOG:
-                if self._embedder is not None:
+                # SEMANTIC_CHUNKING=off downgrades blogs to heading-aware.
+                # Needed on Cohere TRIAL keys: semantic chunking embeds every
+                # sentence of ~700 blog posts — that alone would exhaust the
+                # trial quota that real chunk embedding needs.
+                semantic_enabled = os.environ.get("SEMANTIC_CHUNKING", "on") != "off"
+                if self._embedder is not None and semantic_enabled:
                     return SemanticChunker(self._embedder, target_tokens=300)
-                logger.warning("semantic_chunker_unavailable_no_embedder_falling_back")
+                logger.warning("semantic_chunking_disabled_using_heading_aware")
                 return HeadingAwareChunker(max_tokens=512, overlap_tokens=0)
             case DocType.RUNBOOK:
                 return HeadingAwareChunker(
