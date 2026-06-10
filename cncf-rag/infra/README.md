@@ -23,6 +23,23 @@ terraform apply -var="your_ip_cidr=$(curl -s ifconfig.me)/32"
 `key_pair_name`, `s3_bucket_name`, and `app_repo_url` have defaults set for this
 project (see variables.tf). Override with `-var=` if anything differs.
 
+> ⚠ **Private repo caveat:** the user-data script clones `app_repo_url`
+> anonymously. If the GitHub repo is **private**, that clone fails and
+> bootstrap stops before creating `/etc/cncf-rag.env` and the app service.
+> Either make the repo public, put a read-only token in the URL
+> (`https://<TOKEN>@github.com/...`), or upload the code manually:
+>
+> ```bash
+> tar czf /tmp/app.tar.gz --exclude='.venv' --exclude='.git' .
+> scp -i <KEY.pem> /tmp/app.tar.gz ec2-user@<IP>:/tmp/
+> ssh -i <KEY.pem> ec2-user@<IP> 'sudo mkdir -p /opt/rag-pipeline && \
+>   sudo tar xzf /tmp/app.tar.gz -C /opt/rag-pipeline && \
+>   sudo ln -sfn /opt/rag-pipeline/cncf-rag /opt/cncf-rag && \
+>   cd /opt/cncf-rag && sudo /root/.local/bin/uv sync'
+> # then re-create /etc/cncf-rag.env and the cncf-rag.service unit from
+> # infra/user_data.sh.tpl (the blocks after the git clone step).
+> ```
+
 After apply, follow the `next_steps` output verbatim (SSH in, populate
 `/etc/cncf-rag.env`, start the service, ingest, query).
 

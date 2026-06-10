@@ -1,0 +1,29 @@
+[
+  {
+    "question": "What apiVersion should I use for Ingress in v1.22?",
+    "answer": "",
+    "contexts": [],
+    "ground_truth": "networking.k8s.io/v1 — extensions/v1beta1 and networking.k8s.io/v1beta1 Ingress were removed in v1.22.",
+    "expected_version": "v1.22",
+    "answer_citations": [],
+    "synthetic": false
+  },
+  {
+    "question": "What is a Kubernetes Pod?",
+    "answer": "",
+    "contexts": [],
+    "ground_truth": "A Pod is the smallest deployable unit of computing that you can create and manage in Kubernetes — a group of one or more containers with shared storage and network resources.",
+    "expected_version": null,
+    "answer_citations": [],
+    "synthetic": false
+  },
+  {
+    "question": "How do I roll back a Helm release?",
+    "answer": "",
+    "contexts": [],
+    "ground_truth": "Use `helm rollback <RELEASE> [REVISION]`. Use `helm history <RELEASE>` to list revisions first.",
+    "expected_version": null,
+    "answer_citations": [],
+    "synthetic": false
+  }
+]
