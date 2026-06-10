@@ -44,6 +44,11 @@ class CohereEmbeddingService(EmbeddingService):
         self._encoding = tiktoken.get_encoding("cl100k_base")
         self._min_request_interval = 60.0 / requests_per_minute
         self._last_request_at = 0.0
+        # Trial keys also cap TOKENS at 100k/minute — a single 96-text batch of
+        # 364-token chunks is ~35k tokens, so two fast batches can trip it even
+        # under the request-rate cap. Track a rolling 60s token window.
+        self._token_budget_per_minute = 90_000  # 10% headroom under the 100k cap
+        self._token_window: list[tuple[float, int]] = []
 
     async def embed_documents(self, texts: list[str]) -> list[list[float]]:
         vectors: list[list[float]] = []
@@ -83,7 +88,7 @@ class CohereEmbeddingService(EmbeddingService):
         reraise=True,
     )
     async def _embed_batch(self, texts: list[str], input_type: str) -> list[list[float]]:
-        await self._pace()
+        await self._pace(sum(self.count_tokens(t) for t in texts))
         response = await self._client.embed(
             model=self.model,
             texts=texts,
@@ -92,15 +97,26 @@ class CohereEmbeddingService(EmbeddingService):
         )
         return [list(vec) for vec in response.embeddings.float_]
 
-    async def _pace(self) -> None:
-        """Sleep just enough to stay under the trial key's requests/minute cap.
+    async def _pace(self, batch_tokens: int) -> None:
+        """Sleep to stay under BOTH trial caps: requests/minute and tokens/minute.
 
         Proactive pacing beats reactive retries: a 429 from Cohere can penalize
         subsequent requests, so never triggering one is faster overall.
         """
         loop = asyncio.get_event_loop()
-        now = loop.time()
-        wait = self._min_request_interval - (now - self._last_request_at)
+        # Request-rate pacing.
+        wait = self._min_request_interval - (loop.time() - self._last_request_at)
         if wait > 0:
             await asyncio.sleep(wait)
+        # Token-rate pacing: if this batch would push the rolling 60s window
+        # over budget, sleep until the oldest entry ages out.
+        while True:
+            now = loop.time()
+            self._token_window = [(t, n) for t, n in self._token_window if now - t < 60]
+            used = sum(n for _, n in self._token_window)
+            if used + batch_tokens <= self._token_budget_per_minute or not self._token_window:
+                break
+            oldest = self._token_window[0][0]
+            await asyncio.sleep(max(0.5, 60 - (now - oldest)))
+        self._token_window.append((loop.time(), batch_tokens))
         self._last_request_at = loop.time()
