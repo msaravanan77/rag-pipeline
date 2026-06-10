@@ -125,7 +125,13 @@ class CorpusLoader:
         if self._skip_unchanged and index.is_unchanged(rel_path, checksum):
             return None
 
-        parsed = self._parser.parse(raw.decode("utf-8", errors="replace"), rel_path)
+        try:
+            parsed = self._parser.parse(raw.decode("utf-8", errors="replace"), rel_path)
+        except Exception as exc:
+            # Real-world corpora contain malformed frontmatter (e.g. unescaped
+            # colons in titles). One bad file must not abort a 2,650-file run.
+            logger.warning("skip_unparseable_file", path=rel_path, error=str(exc))
+            return None
         content = self._preprocessor.clean(parsed.content)
         if content != parsed.content:
             # Cleaning shifted character positions — re-extract structure from the
