@@ -1,0 +1,12 @@
+# Evaluation targets. See DECISIONS.md 7.1.
+# A run fails (exit code 1 from scripts/run_eval.py) if any metric misses target.
+targets:
+  faithfulness: 0.85        # claims grounded in retrieved context (anti-hallucination)
+  answer_relevancy: 0.80    # answer addresses the actual question
+  context_precision: 0.75   # retrieved chunks contributed to the answer
+  context_recall: 0.70      # all needed information was present in context
+  version_staleness_max: 0.10  # max fraction of answers citing an older version than asked
+
+test_set:
+  path: tests/fixtures/test_set.json
+  report_synthetic_separately: true

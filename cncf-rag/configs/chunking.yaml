@@ -1,0 +1,35 @@
+# Chunking parameters per document type.
+# See DECISIONS.md entry 2.1 for the full rationale per type.
+strategies:
+  CONCEPT:
+    strategy: heading_aware
+    max_tokens: 512
+    overlap_tokens: 0
+  TASK:
+    strategy: heading_aware
+    max_tokens: 400
+    overlap_tokens: 64
+  API_REF:
+    strategy: heading_aware_with_fixed_fallback
+    max_tokens: 384
+    overlap_tokens: 48
+  DSL_REF:
+    strategy: heading_aware_with_fixed_fallback
+    max_tokens: 256
+    overlap_tokens: 32
+  BLOG:
+    strategy: semantic
+    target_tokens: 300
+    similarity_threshold: 0.85
+  RUNBOOK:
+    strategy: heading_aware
+    max_tokens: 512
+    overlap_tokens: 64
+  UNKNOWN:
+    strategy: fixed_size
+    max_tokens: 512
+    overlap_tokens: 64
+
+# Sections shorter than this are merged with the following sibling section
+# to avoid embedding near-empty chunks that pollute retrieval.
+min_section_tokens: 40

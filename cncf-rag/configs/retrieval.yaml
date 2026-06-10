@@ -1,0 +1,40 @@
+# Retrieval strategy routing per query type. See DECISIONS.md 5.1–5.3.
+strategies:
+  FACTUAL:
+    strategy: filtered_topk
+    top_k: 5
+    rerank: false
+  PROCEDURAL:
+    strategy: filtered_topk
+    top_k: 5
+    doc_type_filter: TASK
+    rerank: false
+  CONCEPTUAL:
+    strategy: filtered_topk
+    top_k: 5
+    doc_type_filter: CONCEPT
+    rerank: false
+  VERSION_SPECIFIC:
+    strategy: filtered_topk
+    top_k: 5
+    rerank: false
+  CROSS_PROJECT:
+    strategy: multi_query
+    top_k_per_project: 3
+    rrf_k: 60
+    rerank: true
+  EXPLORATORY:
+    strategy: mmr
+    top_k: 8
+    mmr_lambda: 0.6
+    rerank: true
+
+reranker:
+  model: rerank-english-v3.0
+  top_n: 5
+
+# Generation short-circuit: if best similarity is below this, skip the LLM
+# call entirely and return cannot_answer (saves cost on unanswerable queries).
+min_similarity_for_generation: 0.70
+
+hnsw_ef_search: 50

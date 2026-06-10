@@ -1,0 +1,22 @@
+[
+  {"question": "What apiVersion should I use for Ingress in v1.22?", "expected_version": "v1.22", "ground_truth": "networking.k8s.io/v1 — extensions/v1beta1 and networking.k8s.io/v1beta1 Ingress were removed in v1.22."},
+  {"question": "Is PodSecurityPolicy available in v1.25?", "expected_version": "v1.25", "ground_truth": "No. PodSecurityPolicy was removed in v1.25; use Pod Security Admission instead."},
+  {"question": "What apiVersion should CronJob use in v1.25?", "expected_version": "v1.25", "ground_truth": "batch/v1 — batch/v1beta1 CronJob was removed in v1.25."},
+  {"question": "Which API group serves CustomResourceDefinition in v1.22?", "expected_version": "v1.22", "ground_truth": "apiextensions.k8s.io/v1 — the v1beta1 CRD API was removed in v1.22."},
+  {"question": "Is the dockershim container runtime supported in v1.24?", "expected_version": "v1.24", "ground_truth": "No. Dockershim was removed in v1.24; use containerd or CRI-O."},
+  {"question": "What apiVersion does HorizontalPodAutoscaler use in v1.26?", "expected_version": "v1.26", "ground_truth": "autoscaling/v2 — autoscaling/v2beta2 was removed in v1.26."},
+  {"question": "Is the FlowSchema v1beta1 API available in v1.26?", "expected_version": "v1.26", "ground_truth": "flowcontrol.apiserver.k8s.io/v1beta1 was removed in v1.26; use v1beta3 or later."},
+  {"question": "What admission control replaces PSP for enforcing pod security in v1.25?", "expected_version": "v1.25", "ground_truth": "Pod Security Admission (PSA), stable in v1.25, using namespace labels with privileged/baseline/restricted levels."},
+  {"question": "Which apiVersion serves EndpointSlice in v1.25?", "expected_version": "v1.25", "ground_truth": "discovery.k8s.io/v1 — the v1beta1 EndpointSlice API was removed in v1.25."},
+  {"question": "Are in-tree GlusterFS volumes supported in v1.26?", "expected_version": "v1.26", "ground_truth": "The GlusterFS in-tree plugin was deprecated; removal landed in v1.26."},
+  {"question": "What is the status of the events.k8s.io/v1beta1 API in v1.25?", "expected_version": "v1.25", "ground_truth": "Removed in v1.25; use events.k8s.io/v1."},
+  {"question": "Is seccomp profile defaulting GA in v1.27?", "expected_version": "v1.27", "ground_truth": "SeccompDefault graduated to stable in v1.27."},
+  {"question": "Which apiVersion should PodDisruptionBudget use in v1.25?", "expected_version": "v1.25", "ground_truth": "policy/v1 — policy/v1beta1 PDB was removed in v1.25."},
+  {"question": "Is the in-tree AWS EBS volume plugin available in v1.27?", "expected_version": "v1.27", "ground_truth": "CSI migration for AWS EBS is complete; the in-tree plugin is deprecated in favor of the EBS CSI driver."},
+  {"question": "Does kubectl support the --short flag for version in v1.28?", "expected_version": "v1.28", "ground_truth": "kubectl version --short was removed in v1.28; short output is now default."},
+  {"question": "What is the storage version for batch/v1beta1 CronJob in v1.21?", "expected_version": "v1.21", "ground_truth": "In v1.21 CronJob graduated to batch/v1; v1beta1 still served but deprecated."},
+  {"question": "Is the RuntimeClass scheduling API in node.k8s.io/v1beta1 available in v1.25?", "expected_version": "v1.25", "ground_truth": "node.k8s.io/v1beta1 RuntimeClass was removed in v1.25; use node.k8s.io/v1."},
+  {"question": "Are wildcard queries to the apiserver via apiVersion extensions/v1beta1 valid in v1.22?", "expected_version": "v1.22", "ground_truth": "extensions/v1beta1 was fully removed by v1.22 — all workloads APIs moved to apps/v1 and networking.k8s.io/v1."},
+  {"question": "Is CSIStorageCapacity beta API available in v1.27?", "expected_version": "v1.27", "ground_truth": "storage.k8s.io/v1beta1 CSIStorageCapacity was removed in v1.27; use storage.k8s.io/v1."},
+  {"question": "What replaces the deprecated --pod-eviction-timeout flag in v1.27?", "expected_version": "v1.27", "ground_truth": "Taint-based eviction with tolerationSeconds replaces the controller-manager --pod-eviction-timeout behavior."}
+]

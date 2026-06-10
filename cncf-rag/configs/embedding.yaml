@@ -1,0 +1,14 @@
+# Embedding provider configuration.
+# See DECISIONS.md entry 3.1: Cohere embed-english-v3.0 chosen because the
+# free trial tier covers this project's full ingestion at zero cost, and its
+# MTEB retrieval score (64.5) actually exceeds text-embedding-3-small (62.3).
+provider: cohere
+model: embed-english-v3.0
+dimensions: 1024            # fixed by the model; not configurable like OpenAI Matryoshka
+batch_size: 96              # Cohere API maximum is 96 texts per request
+max_input_tokens: 512       # embed-english-v3.0 context limit; longer inputs are truncated server-side
+
+# Trial key rate limits (important for ingestion pacing):
+#   - 100 requests/minute for embed
+# The embedding service sleeps between batches to stay under this.
+trial_requests_per_minute: 100
