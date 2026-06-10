@@ -8,6 +8,7 @@ unit for documentation queries.
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
 
 import structlog
@@ -88,11 +89,29 @@ class HeadingAwareChunker(BaseChunker):
             has_code_blocks="```" in content,
         )
 
+    @staticmethod
+    def _fence_spans(content: str) -> list[tuple[int, int]]:
+        """Character ranges of fenced code blocks — section boundaries must
+        never fall inside one (a `## comment` line in bash looks like a heading
+        to offset-recovery but is code)."""
+        return [m.span() for m in re.finditer(r"```.*?```", content, re.DOTALL)]
+
     def _split_sections(self, document: Document) -> list[_Section]:
         """Slice content at heading offsets; a section runs until the next
         same-or-higher-level heading (lower level = nested subsection stays in)."""
-        headings = sorted(document.headings, key=lambda h: h.char_offset)
         content = document.content
+        spans = self._fence_spans(content)
+
+        def inside_fence(offset: int) -> bool:
+            return any(start < offset < end for start, end in spans)
+
+        # Headings whose offset landed inside a code fence are artifacts of
+        # offset recovery (e.g. '# install' comments in bash) — drop them so
+        # they never become slice boundaries.
+        headings = sorted(
+            (h for h in document.headings if not inside_fence(h.char_offset)),
+            key=lambda h: h.char_offset,
+        )
         sections: list[_Section] = []
 
         # Preamble before the first heading (k8s docs often open with a summary).

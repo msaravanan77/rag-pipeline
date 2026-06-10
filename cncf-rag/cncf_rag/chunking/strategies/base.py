@@ -22,9 +22,15 @@ _ENCODING = tiktoken.get_encoding("cl100k_base")
 
 
 class BaseChunker(ABC):
-    def __init__(self, max_tokens: int = 512, overlap_tokens: int = 0) -> None:
+    def __init__(
+        self, max_tokens: int = 512, overlap_tokens: int = 0, validate_code_blocks: bool = True
+    ) -> None:
         self.max_tokens = max_tokens
         self.overlap_tokens = overlap_tokens
+        # Disabled only for the factory's last-resort fallback on documents
+        # whose fence syntax is itself unbalanced (4-backtick nesting etc.) —
+        # the odd-count check would be meaningless there.
+        self.validate_code_blocks = validate_code_blocks
 
     @abstractmethod
     def chunk(self, document: Document) -> list[Chunk]:
@@ -42,13 +48,14 @@ class BaseChunker(ABC):
     def _decode(tokens: list[int]) -> str:
         return _ENCODING.decode(tokens)
 
-    @staticmethod
-    def _assert_no_split_code_blocks(chunks: list[Chunk]) -> None:
+    def _assert_no_split_code_blocks(self, chunks: list[Chunk]) -> None:
         """Raise if any chunk contains an odd number of code fences.
 
         An odd fence count means a chunk boundary landed inside a fenced block —
         the one corruption no downstream component can repair.
         """
+        if not self.validate_code_blocks:
+            return
         for chunk in chunks:
             if chunk.content.count("```") % 2 != 0:
                 raise ValueError(

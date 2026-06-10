@@ -53,10 +53,25 @@ class ChunkerFactory:
 
     async def chunk_document(self, document: Document) -> list[Chunk]:
         chunker = self.get_chunker_for(document.doc_type)
-        if isinstance(chunker, SemanticChunker):
-            chunks = await chunker.achunk(document)
-        else:
-            chunks = chunker.chunk(document)
+        try:
+            if isinstance(chunker, SemanticChunker):
+                chunks = await chunker.achunk(document)
+            else:
+                chunks = chunker.chunk(document)
+        except ValueError as exc:
+            # The no-split-code-block contract fired: this document's fence
+            # syntax is unbalanced (4-backtick nesting, unterminated fence).
+            # One pathological file must not abort a full corpus run — fall
+            # back to fixed-size with validation off and log it for review.
+            logger.warning(
+                "chunking_contract_violation_fallback",
+                doc=document.metadata.source_path,
+                error=str(exc)[:200],
+            )
+            fallback = FixedSizeChunker(
+                max_tokens=512, overlap_tokens=0, validate_code_blocks=False
+            )
+            chunks = fallback.chunk(document)
         # Stamp shared payload metadata once, here, so individual chunkers
         # don't each need to know about projects/versions/URLs.
         for chunk in chunks:
