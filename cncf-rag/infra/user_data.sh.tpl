@@ -59,7 +59,8 @@ else
 fi
 
 # ---------- Application code: S3 bundle first, git clone fallback ----------
-# S3 is primary because the GitHub repo is private (anonymous clone fails).
+# S3 bundle is primary (faster, pre-built). Git clone works as fallback because
+# the GitHub repo is public — no authentication required.
 mkdir -p /opt/rag-pipeline
 if aws s3 cp "s3://$${BUCKET}/bootstrap/code.tar.gz" /tmp/code.tar.gz; then
   tar xzf /tmp/code.tar.gz -C /opt/rag-pipeline
