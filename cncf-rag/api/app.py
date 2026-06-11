@@ -34,6 +34,7 @@ async def lifespan(app: FastAPI):
     store = QdrantVectorStore()
     _state["store"] = store
     _state["pipeline"] = RetrievalPipeline(embedder, store, reranker=CohereReranker())
+    # GenerationService reads GENERATION_PROVIDER env var: "openai" or "anthropic".
     _state["generator"] = GenerationService()
     _state["tracer"] = init_tracing()
     yield

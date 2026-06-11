@@ -8,6 +8,7 @@ required for generation, so no extra provider is introduced).
 
 from __future__ import annotations
 
+import os
 import re
 
 import structlog
@@ -108,15 +109,25 @@ class DocTypeClassifier:
         return sum(len(s.split()) for s in sentences) / len(sentences)
 
     async def _classify_by_llm(self, source_path: str, content: str) -> tuple[DocType, float]:
+        # DISABLE_LLM_CLASSIFICATION=true skips the API call entirely — use when
+        # the Anthropic key is unavailable or to avoid burning the monthly budget.
+        if os.environ.get("DISABLE_LLM_CLASSIFICATION", "").lower() in ("1", "true", "yes"):
+            return DocType.UNKNOWN, 0.5
         # 2000 chars is enough signal for classification; sending whole files
         # would multiply token cost ~10x for no accuracy gain.
         prompt = _LLM_CLASSIFY_PROMPT.format(path=source_path, content=content[:2000])
         assert self._client is not None
-        response = await self._client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=10,
-            messages=[{"role": "user", "content": prompt}],
-        )
+        try:
+            response = await self._client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=10,
+                messages=[{"role": "user", "content": prompt}],
+            )
+        except Exception as exc:
+            # API unavailable (rate limit, spend cap, network) — don't crash
+            # ingestion; use UNKNOWN and chunker falls back to fixed_size.
+            logger.warning("llm_classifier_api_error_using_unknown", path=source_path, error=str(exc))
+            return DocType.UNKNOWN, 0.5
         label = response.content[0].text.strip().lower()
         try:
             doc_type = DocType(label)

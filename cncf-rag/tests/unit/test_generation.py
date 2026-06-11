@@ -39,9 +39,12 @@ class TestPromptBuilder:
 
 class TestGenerationService:
     @pytest.fixture
-    def service(self):
-        # No API call happens in these tests — pass a placeholder client.
-        return GenerationService(anthropic_client=object())
+    def service(self, monkeypatch):
+        # These tests only exercise the short-circuit path (score too low) —
+        # no API call is ever made, so a fake key is fine.
+        monkeypatch.setenv("GENERATION_PROVIDER", "openai")
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        return GenerationService()
 
     async def test_cannot_answer_on_low_similarity(self, service):
         result = await service.generate("q", [chunk("a", "text", 0.5)])
