@@ -18,7 +18,7 @@ from cncf_rag.vectorstore.qdrant_store import ScoredChunk
 
 
 class _FakePipeline:
-    async def retrieve(self, query: str, strategy_override: str | None = None) -> RetrievalResult:
+    async def retrieve(self, query: str, strategy_override: str | None = None, filter_override: dict | None = None) -> RetrievalResult:
         return RetrievalResult(
             query=query,
             analysis=QueryAnalysis(query=query, query_type=QueryType.CONCEPTUAL),

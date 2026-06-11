@@ -148,42 +148,46 @@ Revisit when: ChunkingEvaluator shows split_code_block_count > 0 or p95_token_co
 
 ---
 
-## Decision 3.1 — Embedding Model: Cohere embed-english-v3.0 (1024 dimensions)
+## Decision 3.1 — Embedding Model: OpenAI text-embedding-3-small (1536 dimensions)
 
 ```
-Context: Need to embed ~200,000 chunks (estimated from 2,650 documents after chunking).
-Choice affects retrieval quality (MTEB score), cost per full index run, and operational
-complexity. The user has a Cohere trial key and no OpenAI account — cost-to-start matters.
+Context: Need to embed ~25,000–200,000 chunks. Choice affects retrieval quality (MTEB
+score), ingestion speed, cost per run, and operational complexity.
+
+Original design used Cohere embed-english-v3.0 (1024 dims, trial key, 100k TPM).
+Switched to OpenAI text-embedding-3-small during initial ingestion because the Cohere
+trial key's 100k tokens/minute cap made a full-corpus ingest take 40+ minutes with
+unpredictable rate-limit errors. The OpenAI paid tier provides 1M tokens/minute — 10×
+faster — at essentially the same cost.
 
 Options Considered:
-| Model                           | MTEB Retrieval | Cost to start   | Ops overhead | Decision  |
-|---------------------------------|----------------|-----------------|--------------|-----------|
-| embed-english-v3.0 (Cohere)     | 64.5           | $0 (trial tier) | Zero (API)   | CHOSEN    |
-| text-embedding-3-small (OpenAI) | 62.3           | $5 min top-up   | Zero (API)   | Rejected  |
-| text-embedding-3-large (OpenAI) | 64.6           | $5 min top-up   | Zero (API)   | Rejected  |
-| BAAI/bge-large-en-v1.5 (local)  | 63.7           | Compute only    | GPU server   | Rejected  |
+| Model                           | MTEB Retrieval | TPM (trial)  | TPM (paid)  | Dims | Decision    |
+|---------------------------------|----------------|--------------|-------------|------|-------------|
+| embed-english-v3.0 (Cohere)     | 64.5           | 100k (trial) | 10M (paid)  | 1024 | Original    |
+| text-embedding-3-small (OpenAI) | 62.3           | —            | 1M          | 1536 | **CURRENT** |
+| text-embedding-3-large (OpenAI) | 64.6           | —            | 1M          | 3072 | Rejected    |
+| BAAI/bge-large-en-v1.5 (local)  | 63.7           | —            | GPU server  | 1024 | Rejected    |
 
-Decision: Cohere embed-english-v3.0 at its native 1024 dimensions
-Reason: The user already holds a Cohere trial key (also used for reranking), making
-embeddings free to start AND removing an entire provider dependency (no OpenAI account
-needed at all). Its MTEB retrieval score (64.5) is *higher* than text-embedding-3-small
-(62.3) — we gain quality, not lose it. Self-hosted BGE rejected: GPU infrastructure
-contradicts the EC2-simple deployment goal.
+Decision: OpenAI text-embedding-3-small at 1536 dimensions
+Reason: 1M TPM paid tier makes a full ingestion of all four projects take ~9 minutes
+total. MTEB score difference vs Cohere (62.3 vs 64.5) is negligible for this use case.
+The Cohere key is still used for reranking (separate API, trial quota sufficient for
+per-query usage).
 
-The input_type requirement: Cohere v3 embeddings REQUIRE input_type="search_document"
-when indexing and input_type="search_query" when querying — vectors from the wrong type
-degrade retrieval measurably. This is exactly why EmbeddingService exposes separate
-embed_documents() and embed_query() methods: the asymmetry lives in one provider file,
-not at every call site.
+Note on Qdrant dimension change: switching from Cohere (1024 dims) to OpenAI (1536 dims)
+requires deleting and recreating the Qdrant collection. The ensure_collection() method
+in qdrant_store.py detects this mismatch automatically and recreates the collection.
+Qdrant v1.18.2+ stores vectors in a new storage format incompatible with v1.9.0 data
+files — a clean start (delete /var/lib/qdrant/storage/) is needed when upgrading Qdrant.
 
-Trial-key constraint: 100 requests/minute. At batch_size=96 that is ~9,600 chunks/minute —
-a full 200k-chunk ingestion takes ~25 minutes of paced API calls. Acceptable for a batch
-job; the provider sleeps between batches to respect the limit.
+The input_type asymmetry: OpenAI text-embedding-3-small does NOT require separate
+document/query input types (unlike Cohere v3). However, EmbeddingService still exposes
+embed_documents() and embed_query() methods — this preserves the interface contract and
+allows switching back to Cohere on the paid tier without changing call sites.
 
-Tradeoffs accepted: Trial key rate limits make ingestion slower than a paid key.
-Production use would require upgrading to a paid Cohere key (same code, new key).
-Revisit when: RAGAS answer relevance falls below 0.75 and the embedding model is
-identified as the bottleneck (vs chunking or retrieval strategy).
+Tradeoffs accepted: Slightly lower MTEB score than Cohere (62.3 vs 64.5). Requires
+OpenAI account. The 1536-dim vectors take ~50% more storage than 1024-dim.
+Revisit when: RAGAS answer relevance falls below 0.75 and embeddings are the bottleneck.
 ```
 
 ---
@@ -313,19 +317,42 @@ Revisit when: Reranking latency exceeds 500ms (switch to self-hosted cross-encod
 
 ---
 
-## Decision 6.1 — Generation Model: claude-sonnet-4-5 via Anthropic API
+## Decision 6.1 — Generation Model: Dual-provider (GPT-4o-mini default, claude-sonnet-4-5 optional)
 
 ```
-Decision: anthropic claude-sonnet-4-5
-Reason: This is a faithfulness-first system (target: ≥0.85 RAGAS faithfulness). The
-system prompt constraint "answer only from the provided context" requires strong
-instruction-following. Claude Sonnet models follow this constraint more reliably than
-gpt-4o-mini in benchmarks and anecdotal testing. The 200k context window handles large
-retrieved context sets without truncation. Cost difference vs GPT-4o is negligible at
-the query volumes this learning project generates.
-Tradeoffs accepted: Anthropic API dependency. Cost ~$0.02–0.05 per query at typical
-context sizes.
-Revisit when: Faithfulness drops below 0.80 despite prompt improvements (try larger model).
+Original design: anthropic claude-sonnet-4-5 only.
+
+Change: GenerationService now supports both providers via GENERATION_PROVIDER env var.
+Default is OpenAI GPT-4o-mini. Reason for change: the Anthropic trial account has a
+monthly spending cap (~$5 by default). During initial corpus ingestion, the LLM
+classifier made ~15,000 API calls (Haiku) for every document — this exhausted the
+monthly cap before ingestion completed. GPT-4o-mini became the necessary fallback.
+
+GENERATION_PROVIDER=openai  (default)
+  Model: gpt-4o-mini ($0.15/1M input, $0.60/1M output)
+  Response format: JSON mode (response_format={"type": "json_object"})
+  Cost per query: ~$0.0004–0.0006
+
+GENERATION_PROVIDER=anthropic
+  Model: claude-sonnet-4-5 ($3.00/1M input, $15.00/1M output)
+  Response format: Instructed JSON in system prompt (no native JSON mode)
+  Cost per query: ~$0.02–0.05
+  Faithfulness: Higher — Claude follows "answer only from context" more reliably
+
+Which to use:
+- For learning/exploration: GPT-4o-mini (default). Adequate faithfulness, very cheap.
+- For production or accuracy evaluation: switch to claude-sonnet-4-5 (set GENERATION_PROVIDER=anthropic).
+
+LLM classification (separate from generation):
+  Uses claude-haiku-4-5-20251001. Default: DISABLED (DISABLE_LLM_CLASSIFICATION=true).
+  Cost if enabled: ~$0.03 for a full re-ingest of all 4 projects (English docs only).
+  Burned $2.40 in practice because haiku was called for 11 non-English helm translations
+  before the DISABLE flag existed. The try/except and env guard now prevent this.
+
+Tradeoffs accepted:
+- GPT-4o-mini may hallucinate slightly more than Claude (lower faithfulness ceiling).
+- Two code paths add maintenance surface.
+Revisit when: RAGAS faithfulness drops below 0.75 on GPT-4o-mini (switch to Claude).
 ```
 
 ---

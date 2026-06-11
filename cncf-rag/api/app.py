@@ -86,18 +86,21 @@ async def query(request: QueryRequest) -> QueryResponse:
     # are attributable within a single trace.
     with tracer.start_as_current_span("rag_query") as span:
         span.set_attribute("query_id", query_id)
-        retrieval = await _state["pipeline"].retrieve(request.query)
-
-        # Explicit user filters override the analyzer's inferences.
+        # Build explicit user filters. These are passed into the retrieval pipeline
+        # so Qdrant applies them server-side before scoring — not as Python post-filters.
+        # Post-filtering was wrong: if Qdrant returned top-5 from the wrong project and
+        # Python filtered them all out, the answer was "cannot_answer" even when relevant
+        # docs existed at rank 6+.
+        filter_override: dict | None = None
         if request.project_filter or request.version_filter:
-            chunks = [
-                c
-                for c in retrieval.chunks
-                if (not request.project_filter or c.payload.get("project") == request.project_filter)
-                and (not request.version_filter or c.payload.get("version_tag") == request.version_filter)
-            ]
-        else:
-            chunks = retrieval.chunks
+            filter_override = {}
+            if request.project_filter:
+                filter_override["project"] = request.project_filter
+            if request.version_filter:
+                filter_override["version_tag"] = request.version_filter
+
+        retrieval = await _state["pipeline"].retrieve(request.query, filter_override=filter_override)
+        chunks = retrieval.chunks
 
         generation = await _state["generator"].generate(request.query, chunks)
         total_ms = (time.perf_counter() - start) * 1000

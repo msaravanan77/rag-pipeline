@@ -46,10 +46,19 @@ class RetrievalPipeline:
         self._multi_query = MultiQueryRetriever(embedder, store)
         self._reranker = reranker
 
-    async def retrieve(self, query: str, strategy_override: str | None = None) -> RetrievalResult:
+    async def retrieve(
+        self,
+        query: str,
+        strategy_override: str | None = None,
+        filter_override: dict | None = None,
+    ) -> RetrievalResult:
         start = time.perf_counter()
         analysis = self._analyzer.analyze(query)
         filters = self._filter_builder.build_from_analysis(analysis)
+        # User-supplied explicit filters (project_filter / version_filter from the API
+        # request) take precedence over anything the analyzer inferred from the query text.
+        if filter_override:
+            filters.update(filter_override)
 
         strategy = strategy_override or self._route(analysis.query_type)
         match strategy:

@@ -35,6 +35,11 @@ _URL_VERSION_RE = re.compile(r"/(v\d+\.\d+)/")
 # (content/zh-cn, content/ja, ...). Only content/en is ingested.
 _NON_ENGLISH_RE = re.compile(r"/content/(?!en/)[a-z]{2}(-[a-z]{2,4})?/")
 
+# ArgoCD is cloned as the full application repo (argoproj/argo-cd), which has README.md
+# files scattered through Go source dirs (ui/, controller/, hack/, test/, ...).
+# Only the docs/ subdirectory contains user-facing documentation.
+_ARGOCD_NON_DOCS_RE = re.compile(r"^argocd/(?!docs/)")
+
 _MAX_FILE_BYTES = 500_000  # auto-generated API dumps exceed this; they pollute retrieval
 
 _SCHEMA = """
@@ -115,6 +120,8 @@ class CorpusLoader:
     ) -> Document | None:
         rel_path = str(md_path.relative_to(project_dir.parent))
         if _NON_ENGLISH_RE.search("/" + rel_path):
+            return None
+        if _ARGOCD_NON_DOCS_RE.match(rel_path):
             return None
         if md_path.stat().st_size > _MAX_FILE_BYTES:
             logger.info("skip_oversized_file", path=rel_path, bytes=md_path.stat().st_size)
