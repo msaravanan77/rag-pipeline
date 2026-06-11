@@ -25,7 +25,7 @@ _ANTHROPIC_OUTPUT_PER_MTOK = 15.00
 _OPENAI_INPUT_PER_MTOK = 0.15       # gpt-4o-mini
 _OPENAI_OUTPUT_PER_MTOK = 0.60
 
-_MIN_SIMILARITY = 0.55
+_MIN_SIMILARITY = 0.45
 
 
 class GenerationParseError(Exception):

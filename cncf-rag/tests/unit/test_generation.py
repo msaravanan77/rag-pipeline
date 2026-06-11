@@ -47,7 +47,7 @@ class TestGenerationService:
         return GenerationService()
 
     async def test_cannot_answer_on_low_similarity(self, service):
-        result = await service.generate("q", [chunk("a", "text", 0.5)])
+        result = await service.generate("q", [chunk("a", "text", 0.3)])
         assert result.cannot_answer is True
         assert result.cost_usd == 0.0
 
