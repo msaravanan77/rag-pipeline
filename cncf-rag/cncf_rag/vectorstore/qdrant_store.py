@@ -121,9 +121,10 @@ class QdrantVectorStore:
         ef: int = 50,
     ) -> list[ScoredChunk]:
         qdrant_filter = self._build_filter(filters) if filters else None
-        results = await self._client.search(
+        # `query_points` replaced the removed `search` API in qdrant-client 1.12+.
+        response = await self._client.query_points(
             collection_name=self.collection_name,
-            query_vector=query_vector,
+            query=query_vector,
             limit=top_k,
             query_filter=qdrant_filter,
             search_params=qm.SearchParams(hnsw_ef=ef),
@@ -137,7 +138,7 @@ class QdrantVectorStore:
                 score=hit.score,
                 payload=hit.payload or {},
             )
-            for hit in results
+            for hit in response.points
         ]
 
     @staticmethod
