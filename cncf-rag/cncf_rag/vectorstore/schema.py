@@ -8,9 +8,10 @@ from qdrant_client import models as qm
 
 COLLECTION_NAME: str = os.environ.get("QDRANT_COLLECTION_NAME", "cncf_docs")
 
-# 1024 = Cohere embed-english-v3.0 native dimensionality.
-# COSINE because Cohere v3 vectors are not pre-normalized.
-VECTOR_CONFIG = qm.VectorParams(size=1024, distance=qm.Distance.COSINE)
+# 1536 = text-embedding-3-small dimensionality. COSINE is correct here too:
+# OpenAI embeddings are unit-normalised so COSINE == DOT, but COSINE is the
+# safer default if the model ever changes.
+VECTOR_CONFIG = qm.VectorParams(size=1536, distance=qm.Distance.COSINE)
 
 # m=16 / ef_construct=100: defaults, >0.95 recall at 200k vectors — see 4.2.
 HNSW_CONFIG = qm.HnswConfigDiff(m=16, ef_construct=100)

@@ -24,13 +24,13 @@ _state: dict = {}
 async def lifespan(app: FastAPI):
     load_dotenv()
     # Heavy clients constructed once at startup, not per-request.
-    from cncf_rag.embedding.cohere_provider import CohereEmbeddingService
+    from cncf_rag.embedding.openai_provider import OpenAIEmbeddingService
     from cncf_rag.generation.service import GenerationService
     from cncf_rag.retrieval.pipeline import RetrievalPipeline
     from cncf_rag.retrieval.reranker import CohereReranker
     from cncf_rag.vectorstore.qdrant_store import QdrantVectorStore
 
-    embedder = CohereEmbeddingService()
+    embedder = OpenAIEmbeddingService()
     store = QdrantVectorStore()
     _state["store"] = store
     _state["pipeline"] = RetrievalPipeline(embedder, store, reranker=CohereReranker())

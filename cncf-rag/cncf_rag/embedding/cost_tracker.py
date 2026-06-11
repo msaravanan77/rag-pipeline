@@ -51,4 +51,4 @@ class EmbeddingCostTracker:
             table.add_row(model, f"{tokens:,}", f"${cost:.4f}")
         table.add_row("TOTAL", f"{self.total_tokens:,}", f"${self.total_cost_usd():.4f}")
         console.print(table)
-        console.print("[dim]Trial key actual spend: $0.00 (rate-limited instead of billed)[/dim]")
+        console.print("[dim]OpenAI paid: billed at rates above. Cohere trial reranking: $0.00.[/dim]")

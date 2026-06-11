@@ -73,6 +73,7 @@ class _FakeTracer:
 def client(monkeypatch):
     # The lifespan constructs real provider clients at startup; dummy keys let
     # construction succeed — the fakes installed below mean nothing is called.
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
     monkeypatch.setenv("COHERE_API_KEY", "test")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     app_module._state.update(

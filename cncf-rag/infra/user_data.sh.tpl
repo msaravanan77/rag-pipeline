@@ -77,7 +77,8 @@ if aws s3 cp "s3://$${BUCKET}/bootstrap/cncf-rag.env" /etc/cncf-rag.env; then
   echo "Environment (with API keys) restored from S3"
 else
   cat > /etc/cncf-rag.env << EOF
-# ACTION REQUIRED: populate both keys, then: sudo systemctl restart cncf-rag
+# ACTION REQUIRED: populate all three keys, then: sudo systemctl restart cncf-rag
+OPENAI_API_KEY=REPLACE_ME
 ANTHROPIC_API_KEY=REPLACE_ME
 COHERE_API_KEY=REPLACE_ME
 QDRANT_HOST=localhost

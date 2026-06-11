@@ -32,10 +32,14 @@ Python env built). You only need to add your API keys:
 
 ```bash
 sudo nano /etc/cncf-rag.env
-# Set:  ANTHROPIC_API_KEY=sk-ant-...   (from console.anthropic.com)
-#       COHERE_API_KEY=...             (your trial key)
+# Set:  OPENAI_API_KEY=sk-proj-...     (from platform.openai.com — used for embeddings)
+#       ANTHROPIC_API_KEY=sk-ant-...   (from console.anthropic.com — used for generation)
+#       COHERE_API_KEY=...             (your trial key — used for reranking only)
 sudo systemctl start cncf-rag
 ```
+
+> **If S3 was seeded** with `backup_to_s3.sh`, all three keys are restored automatically
+> and no manual editing is needed.
 
 Verify both services:
 ```bash

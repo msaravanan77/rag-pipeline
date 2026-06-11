@@ -48,10 +48,10 @@ async def _ingest(projects: list[Project], corpus_dir: Path, dry_run: bool) -> N
     if not dry_run:
         from anthropic import AsyncAnthropic
 
-        from cncf_rag.embedding.cohere_provider import CohereEmbeddingService
+        from cncf_rag.embedding.openai_provider import OpenAIEmbeddingService
         from cncf_rag.vectorstore.qdrant_store import QdrantVectorStore
 
-        embedder = CohereEmbeddingService(cost_tracker=tracker)
+        embedder = OpenAIEmbeddingService(cost_tracker=tracker)
         store = QdrantVectorStore()
         await store.ensure_collection()
         classifier_client = AsyncAnthropic()

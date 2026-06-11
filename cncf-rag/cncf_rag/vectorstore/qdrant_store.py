@@ -15,7 +15,7 @@ from cncf_rag.vectorstore.schema import COLLECTION_NAME, HNSW_CONFIG, PAYLOAD_IN
 
 logger = structlog.get_logger(__name__)
 
-_UPSERT_BATCH = 100  # keeps request bodies ~1.5MB at 1024-dim float32 — well under limits
+_UPSERT_BATCH = 100  # keeps request bodies ~2.4MB at 1536-dim float32 — well under limits
 
 
 @dataclass
@@ -36,8 +36,26 @@ class QdrantVectorStore:
         self.collection_name = COLLECTION_NAME
 
     async def ensure_collection(self) -> None:
-        """Idempotent: creates collection + payload indexes only if missing."""
+        """Idempotent: creates collection + payload indexes only if missing.
+
+        Also handles the embedding provider swap case: if an existing collection
+        has the wrong vector dimensionality (e.g. 1024 from Cohere vs 1536 from
+        OpenAI), it drops and recreates the collection rather than failing on
+        every upsert. Data loss is intentional — a re-ingest is required after a
+        provider switch anyway.
+        """
         existing = {c.name for c in (await self._client.get_collections()).collections}
+        if self.collection_name in existing:
+            info = await self._client.get_collection(self.collection_name)
+            existing_size = info.config.params.vectors.size
+            if existing_size != VECTOR_CONFIG.size:
+                logger.warning(
+                    "vector_dim_mismatch_recreating_collection",
+                    existing_dims=existing_size,
+                    expected_dims=VECTOR_CONFIG.size,
+                )
+                await self._client.delete_collection(self.collection_name)
+                existing.discard(self.collection_name)
         if self.collection_name not in existing:
             await self._client.create_collection(
                 collection_name=self.collection_name,
