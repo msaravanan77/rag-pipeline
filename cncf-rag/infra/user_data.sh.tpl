@@ -23,7 +23,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 export PATH="/root/.local/bin:$PATH"
 
 # ---------- Qdrant (single static binary) ----------
-QDRANT_VERSION="v1.9.0"
+QDRANT_VERSION="v1.18.2"
 cd /tmp
 wget -q "https://github.com/qdrant/qdrant/releases/download/$${QDRANT_VERSION}/qdrant-x86_64-unknown-linux-musl.tar.gz"
 tar -xzf qdrant-x86_64-unknown-linux-musl.tar.gz

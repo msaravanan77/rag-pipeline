@@ -585,7 +585,7 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
     { name = "pyyaml", specifier = ">=6.0.1" },
-    { name = "qdrant-client", specifier = ">=1.9.0" },
+    { name = "qdrant-client", specifier = ">=1.18.0,<1.19.0" },
     { name = "ragas", specifier = ">=0.1.9" },
     { name = "rich", specifier = ">=13.7.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4.0" },
